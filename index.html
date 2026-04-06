@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chargebee Tools</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --fg: #111;
+      --bg: #fafafa;
+      --muted: #666;
+      --accent: #0969da;
+      --border: #e1e4e8;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fg: #e6edf3;
+        --bg: #0d1117;
+        --muted: #8b949e;
+        --accent: #58a6ff;
+        --border: #30363d;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+      color: var(--fg);
+      background: var(--bg);
+      line-height: 1.55;
+    }
+    h1 { margin-top: 0; font-size: 1.75rem; }
+    p.lede { color: var(--muted); margin-bottom: 2rem; }
+    ul.tools {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    ul.tools li {
+      padding: 0.9rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    ul.tools li:last-child { border-bottom: none; }
+    ul.tools a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    ul.tools a:hover { text-decoration: underline; }
+    ul.tools .desc {
+      display: block;
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-top: 0.2rem;
+    }
+    .empty {
+      color: var(--muted);
+      font-style: italic;
+      padding: 2rem 0;
+      text-align: center;
+    }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    footer a { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>Chargebee Tools</h1>
+  <p class="lede">A collection of small standalone web tools.</p>
+
+  <ul class="tools">
+    <!-- Add entries like:
+    <li>
+      <a href="tool-name/">Tool name</a>
+      <span class="desc">Short description of what it does.</span>
+    </li>
+    -->
+    <li class="empty">No tools yet — add your first one to get started.</li>
+  </ul>
+
+  <footer>
+    Source on <a href="https://github.com/">GitHub</a>.
+  </footer>
+</body>
+</html>
