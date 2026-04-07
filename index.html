@@ -3,23 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Chargebee Tools</title>
+  <title>inferens.dev — Tools</title>
   <style>
     :root {
       color-scheme: light dark;
-      --fg: #111;
-      --bg: #fafafa;
-      --muted: #666;
-      --accent: #0969da;
-      --border: #e1e4e8;
+      --fg: #0f172a;
+      --bg: #ffffff;
+      --muted: #64748b;
+      --accent: #0891b2;
+      --border: #e2e8f0;
+      --brand: #0891b2;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --fg: #e6edf3;
-        --bg: #0d1117;
-        --muted: #8b949e;
-        --accent: #58a6ff;
-        --border: #30363d;
+        --fg: #f1f5f9;
+        --bg: #0a0f1a;
+        --muted: #94a3b8;
+        --accent: #22d3ee;
+        --border: #334155;
+        --brand: #22d3ee;
       }
     }
     * { box-sizing: border-box; }
@@ -32,7 +34,8 @@
       background: var(--bg);
       line-height: 1.55;
     }
-    h1 { margin-top: 0; font-size: 1.75rem; }
+    h1 { margin-top: 0; font-size: 1.75rem; letter-spacing: -0.5px; }
+    h1 .tld { color: var(--brand); font-weight: 800; }
     p.lede { color: var(--muted); margin-bottom: 2rem; }
     ul.tools {
       list-style: none;
@@ -73,17 +76,14 @@
   </style>
 </head>
 <body>
-  <h1>Chargebee Tools</h1>
-  <p class="lede">A collection of small standalone web tools.</p>
+  <h1>inferens<span class="tld">.dev</span></h1>
+  <p class="lede">A collection of small standalone web tools for Chargebee.</p>
 
   <ul class="tools">
-    <!-- Add entries like:
     <li>
-      <a href="tool-name/">Tool name</a>
-      <span class="desc">Short description of what it does.</span>
+      <a href="translation-editor.html">Translation Editor</a>
+      <span class="desc">Edit Chargebee language pack translations side-by-side with AI-assisted translation.</span>
     </li>
-    -->
-    <li class="empty">No tools yet — add your first one to get started.</li>
   </ul>
 
   <footer>

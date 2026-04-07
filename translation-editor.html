@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>inferens.dev — Translation Editor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --primary: #0891b2; --primary-light: #ecfeff; --primary-dark: #0e7490;
+  --accent: #d97706; --accent-hover: #b45309; --accent-light: #fffbeb;
+  --bg: #ffffff; --bg2: #f8fafc; --bg3: #f1f5f9; --border: #e2e8f0;
+  --text: #0f172a; --text2: #64748b; --text3: #94a3b8;
+  --green: #059669; --green-bg: #ecfdf5; --yellow: #d97706; --yellow-bg: #fffbeb;
+  --red: #dc2626; --red-bg: #fef2f2; --blue: #0891b2; --blue-bg: #ecfeff;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04);
+  --radius: 12px; --radius-sm: 8px; --row-h: 48px;
+}
+.dark {
+  --primary: #22d3ee; --primary-light: #083344; --primary-dark: #67e8f9;
+  --accent: #fbbf24; --accent-hover: #f59e0b; --accent-light: #422006;
+  --bg: #0a0f1a; --bg2: #111827; --bg3: #1e293b; --border: #334155;
+  --text: #f1f5f9; --text2: #94a3b8; --text3: #475569;
+  --green: #34d399; --green-bg: #064e3b; --yellow: #fbbf24; --yellow-bg: #422006;
+  --red: #f87171; --red-bg: #450a0a; --blue: #22d3ee; --blue-bg: #083344;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5), 0 4px 6px -4px rgba(0,0,0,0.3);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 14px; }
+button { cursor: pointer; font-family: inherit; font-size: 13px; border: 1px solid var(--border); background: var(--bg); color: var(--text); padding: 8px 16px; border-radius: var(--radius-sm); transition: all 0.2s; font-weight: 500; }
+button:hover { background: var(--bg3); box-shadow: var(--shadow-sm); }
+button:active { transform: scale(0.98); }
+button.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+button.primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+button.accent { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+button.accent:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+input, select { font-family: inherit; font-size: 14px; border: 1px solid var(--border); background: var(--bg); color: var(--text); padding: 8px 12px; border-radius: var(--radius-sm); outline: none; transition: all 0.2s; }
+input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
+#app { max-width: 1400px; margin: 0 auto; padding: 24px 32px; }
+
+.header { display: flex; align-items: center; justify-content: space-between; padding: 16px 0 20px; border-bottom: 2px solid transparent; border-image: linear-gradient(to right, var(--primary), transparent) 1; margin-bottom: 24px; }
+.header h1 { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 0; }
+.logo-mark { color: var(--text); letter-spacing: -0.5px; }
+.logo-tld { color: var(--primary); font-weight: 800; }
+.header-sep { width: 1px; height: 22px; background: var(--border); margin: 0 16px; flex-shrink: 0; }
+.header-title { font-size: 15px; font-weight: 500; color: var(--text2); letter-spacing: 0; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+#themeToggle { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; padding: 0; }
+
+.drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 48px 32px; text-align: center; color: var(--text2); cursor: pointer; transition: all 0.3s; margin-bottom: 20px; }
+.drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: var(--primary-light); color: var(--primary); box-shadow: var(--shadow-md); }
+.drop-zone.loaded { border-color: var(--green); background: var(--green-bg); color: var(--green); border-style: solid; }
+.drop-zone input { display: none; }
+.drop-zone .drop-icon { display: block; margin: 0 auto 16px; opacity: 0.4; transition: all 0.3s; }
+.drop-zone:hover .drop-icon, .drop-zone.dragover .drop-icon { opacity: 1; transform: translateY(-4px); }
+.drop-zone.loaded .drop-icon { opacity: 0.7; }
+.drop-zone .drop-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+.drop-zone .drop-sub { font-size: 13px; color: var(--text3); }
+
+.toolbar { display: flex; gap: 12px; align-items: center; padding: 14px 18px; flex-wrap: wrap; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; }
+.toolbar label { font-size: 13px; color: var(--text2); font-weight: 500; }
+.toolbar select { min-width: 160px; }
+.toolbar .spacer { flex: 1; }
+
+.progress-section { padding: 8px 0 16px; }
+.progress-bar-outer { height: 10px; background: var(--bg3); border-radius: 5px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.06); }
+.progress-bar-inner { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-dark)); border-radius: 5px; transition: width 0.4s ease; }
+.progress-stats { display: flex; gap: 16px; margin-top: 6px; font-size: 12px; color: var(--text2); flex-wrap: wrap; }
+.progress-stats .stat { display: flex; align-items: center; gap: 4px; }
+.progress-stats .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+.file-progress { display: flex; gap: 6px; flex-wrap: wrap; padding: 4px 0; }
+.file-progress-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); flex: 1 1 auto; min-width: 160px; }
+.file-progress-item .tier-label { font-weight: 600; min-width: 70px; }
+.file-progress-bar { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.file-progress-bar > div { height: 100%; border-radius: 3px; }
+.file-progress-pct { min-width: 32px; text-align: right; }
+.file-progress-detail { color: var(--text3, var(--text2)); font-size: 11px; }
+.file-progress-warning { font-size: 12px; color: var(--yellow); padding: 4px 0; }
+
+.filter-bar { display: flex; gap: 10px; align-items: center; padding: 12px 0; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+.filter-bar input[type="search"] { flex: 1; min-width: 200px; padding-left: 36px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 10px center; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.badge-error { background: var(--red-bg); color: var(--red); }
+.badge-warn { background: var(--yellow-bg); color: var(--yellow); }
+.badge-info { background: var(--blue-bg); color: var(--blue); }
+
+.table-container { position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); margin-top: 12px; box-shadow: var(--shadow-sm); }
+.table-header { display: grid; grid-template-columns: 130px 240px 1fr 1fr 36px; align-items: center; padding: 0 16px; height: 42px; background: var(--bg2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; position: sticky; top: 0; z-index: 2; }
+.table-scroll { overflow-y: auto; max-height: calc(100vh - 380px); min-height: 300px; }
+.table-row { display: grid; grid-template-columns: 130px 240px 1fr 1fr 36px; align-items: center; padding: 0 16px; min-height: var(--row-h); border-bottom: 1px solid var(--border); font-size: 14px; transition: all 0.15s; border-left: 3px solid transparent; }
+.table-row:hover { background: var(--bg2); }
+.table-row:focus-within { border-left-color: var(--primary); background: var(--primary-light); }
+.table-row.missing { background: var(--red-bg); }
+.table-row.modified { background: var(--blue-bg); }
+.table-row.warning { background: var(--yellow-bg); }
+.file-badge { font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.2px; }
+.file-mandatory { background: #dbeafe; color: #1d4ed8; }
+.file-optional { background: #fef3c7; color: #92400e; }
+.file-internal { background: #e0e7ff; color: #3730a3; }
+.file-group { background: var(--primary-light); color: var(--primary-dark); font-weight: 700; }
+.dark .file-mandatory { background: #1e3a5f; color: #93c5fd; }
+.dark .file-optional { background: #78350f; color: #fcd34d; }
+.dark .file-internal { background: #312e81; color: #a5b4fc; }
+.dark .file-group { background: var(--primary-light); color: var(--primary-dark); }
+.key-cell { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-cell { color: var(--text); padding-right: 12px; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
+.target-input { width: 100%; border: 1px solid transparent; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); font-size: 14px; color: var(--text); font-family: inherit; transition: all 0.2s; }
+.target-input:focus { border-color: var(--primary); background: var(--bg); box-shadow: 0 0 0 3px var(--primary-light); }
+.target-input:hover:not(:focus) { border-color: var(--border); background: var(--bg2); }
+.row-icon { font-size: 14px; text-align: center; }
+
+.validation-panel { margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+.validation-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--bg2); cursor: pointer; font-size: 13px; font-weight: 600; user-select: none; }
+.validation-list { max-height: 200px; overflow-y: auto; }
+.validation-item { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--border); font-size: 12px; cursor: pointer; transition: background 0.15s; }
+.validation-item:hover { background: var(--bg2); }
+
+.status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; margin-top: 12px; font-size: 12px; color: var(--text2); border-top: 1px solid var(--border); flex-wrap: wrap; gap: 8px; }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-card { background: var(--bg); border-radius: 16px; padding: 28px; width: 420px; max-width: 90vw; box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
+.modal-card h3 { font-size: 16px; margin-bottom: 16px; }
+.modal-card label { display: block; font-size: 12px; color: var(--text2); font-weight: 500; margin-bottom: 4px; margin-top: 12px; }
+.modal-card input, .modal-card select { width: 100%; }
+.modal-card .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+.empty-state { text-align: center; padding: 80px 20px; color: var(--text2); }
+.empty-state h2 { font-size: 26px; color: var(--text); margin-bottom: 12px; font-weight: 700; letter-spacing: -0.5px; }
+.empty-state p { font-size: 15px; max-width: 520px; margin: 0 auto 16px; line-height: 1.7; }
+
+@media (max-width: 900px) {
+  #app { padding: 16px; }
+  .table-header, .table-row { grid-template-columns: 80px 150px 1fr 1fr 32px; padding: 0 10px; }
+  .toolbar { padding: 10px 12px; }
+  .drop-zone { padding: 32px 20px; }
+  .header h1 { font-size: 18px; }
+  .header-sep { margin: 0 10px; }
+  .header-title { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <h1><span class="logo-mark">inferens</span><span class="logo-tld">.dev</span><span class="header-sep"></span><span class="header-title">Translation Editor</span></h1>
+    <div class="header-actions">
+      <button id="themeToggle" title="Toggle dark mode">&#9789;</button>
+      <button id="clearBtn" title="Clear all data">Clear</button>
+    </div>
+  </div>
+
+  <!-- Single drop zone -->
+  <div class="drop-zone" id="dropZone">
+    <input type="file" accept=".zip" id="zipInput">
+    <svg class="drop-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <div class="drop-title" id="dropTitle">Drop your language pack ZIP here</div>
+    <div class="drop-sub" id="dropSub">or click to browse &mdash; download from Settings &rarr; Configure Chargebee &rarr; Languages</div>
+  </div>
+
+  <!-- Toolbar: locale picker + export (reference is always English) -->
+  <div class="toolbar" id="toolbar" style="display:none;">
+    <label>Reference:</label>
+    <span id="refLocaleLabel" style="font-size:13px;font-weight:600;color:var(--text);padding:6px 12px;background:var(--bg3);border-radius:var(--radius-sm);">English</span>
+    <label>Editing:</label>
+    <select id="editLocale"></select>
+    <span class="spacer"></span>
+    <button class="accent" id="aiTranslateBtn" title="Translate untranslated keys using AI">Translate with AI</button>
+    <button id="aiSettingsBtn" title="AI translation settings" style="padding:6px 8px;">&#9881;</button>
+    <button class="primary" id="exportBtn">Export ZIP</button>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-section" id="progressSection" style="display:none;">
+    <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar"></div></div>
+    <div class="progress-stats" id="progressStats"></div>
+    <div class="file-progress" id="fileProgress"></div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-bar" id="filterBar" style="display:none;">
+    <input type="search" id="searchInput" placeholder="Search keys or values...">
+    <select id="viewFilter" title="Filter by tier or specific file"><option value="all">All</option></select>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;" title="Show only keys that have no translation yet.">
+      <input type="checkbox" id="untranslatedToggle" style="margin:0;cursor:pointer;"> Untranslated only
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;" title="Collapse keys that share the same English value into a single row. Editing the row updates every matching key at once.">
+      <input type="checkbox" id="dedupToggle" checked style="margin:0;cursor:pointer;"> Group identical
+    </label>
+    <span id="filterCount" class="badge badge-info" style="display:none;"></span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-container" id="tableContainer" style="display:none;">
+    <div class="table-header">
+      <span>File</span><span>Key</span><span id="refColLabel">Reference</span><span id="editColLabel">Translation</span><span></span>
+    </div>
+    <div class="table-scroll" id="tableScroll"></div>
+  </div>
+
+  <!-- Validation -->
+  <div class="validation-panel" id="validationPanel" style="display:none;">
+    <div class="validation-header" id="validationHeader">
+      <span>Validation Issues <span id="validationCount" class="badge badge-warn">0</span></span>
+      <span id="validationToggle">&#9660;</span>
+    </div>
+    <div class="validation-list" id="validationList"></div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar" id="statusBar" style="display:none;">
+    <span id="statusLeft"></span>
+    <span id="statusRight"></span>
+  </div>
+
+  <!-- Empty state (shown when no ZIP loaded and no localStorage) -->
+  <div class="empty-state" id="emptyState">
+    <h2>Translation Editor</h2>
+    <p>Import your language pack ZIP to start editing translations side-by-side. The editor auto-detects locales and tier structure.</p>
+    <p style="font-size:12px;color:var(--text3);">All data stays in your browser. Nothing is uploaded to any server.</p>
+  </div>
+
+  <!-- AI Settings Modal -->
+  <div class="modal-overlay" id="aiSettingsModal" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-card">
+      <h3>AI Translation Settings</h3>
+      <label>API Key</label>
+      <input type="password" id="aiApiKey" placeholder="sk-ant-...">
+      <label>Model</label>
+      <select id="aiModel">
+        <option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (fast, cheap)</option>
+        <option value="claude-sonnet-4-6">claude-sonnet-4-6 (higher quality)</option>
+      </select>
+      <label>Base URL <span style="font-weight:400;color:var(--text3);">(optional)</span></label>
+      <input type="text" id="aiBaseUrl" placeholder="https://api.anthropic.com/v1">
+      <div class="modal-actions">
+        <button onclick="document.getElementById('aiSettingsModal').style.display='none'">Cancel</button>
+        <button class="primary" id="aiSettingsSave">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+// ── Helpers ──
+const $ = id => document.getElementById(id);
+const escHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const escAttr = escHtml;
+
+// ── State ──
+// packData: the raw parsed ZIP — { locale: { "relpath.csv": [{key,value},...], ... }, ... }
+let packData = null;
+let originalZipName = '';
+
+const state = {
+  refLocale: '',
+  editLocale: '',
+  locales: [],             // all locale codes found in ZIP
+  // merged view for the currently selected ref+edit locale pair
+  files: {},               // { "Mandatory/plans.csv": [{ key, ref, target, originalTarget, extraKey? }] }
+  // edits stored separately so switching locales doesn't lose work
+  edits: {},               // { locale: { "file.csv": { key: newValue } } }
+  dedup: true,             // group keys that share the same English value into a single row
+  filter: { search: '', view: 'all', untranslated: false },
+  allRows: [],             // per-key flat (all tiers, no scope/dedup)
+  viewRows: [],            // after scope + dedup — feeds applyFilter
+  flatRows: [],            // after filters — feeds renderTable
+  validation: [],
+};
+
+// A file is Mandatory when its first path segment is "Mandatory".
+// Used by scope gating across the pipeline.
+const isMandatoryFile = file => file.split('/')[0] === 'Mandatory';
+const fileTier = file => file.split('/')[0]; // 'Mandatory' | 'Optional' | 'Internal' | basename
+
+// Does this pack use tier folders (Mandatory/Optional/Internal)?
+function packHasTiers() {
+  return Object.keys(state.files).some(f => isMandatoryFile(f));
+}
+
+// Derive which rows pass the current view filter.
+// view values: 'all' | 'tier:Internal' | 'tier:Other' | a specific file path
+function viewFilter(rows) {
+  const v = state.filter.view;
+  if (v === 'all') return rows;
+  if (v === 'tier:Internal') {
+    return rows.filter(r => fileTier(r.file) === 'Internal');
+  }
+  if (v === 'tier:Other') {
+    return rows.filter(r => fileTier(r.file) !== 'Internal');
+  }
+  return rows.filter(r => r.file === v); // specific file
+}
+
+
+
+// ── Theme ──
+function initTheme() {
+  const saved = localStorage.getItem('cb-theme');
+  if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme:dark)').matches))
+    document.documentElement.classList.add('dark');
+  $('themeToggle').onclick = () => {
+    document.documentElement.classList.toggle('dark');
+    localStorage.setItem('cb-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    updateThemeIcon();
+  };
+  updateThemeIcon();
+}
+function updateThemeIcon() {
+  $('themeToggle').textContent = document.documentElement.classList.contains('dark') ? '\u2600' : '\u263D';
+}
+
+// ── ZIP Parsing ──
+async function parseZip(file) {
+  const zip = await JSZip.loadAsync(file);
+  const locales = {};
+  const TIER_FOLDERS = new Set(['Mandatory', 'Optional', 'Internal']);
+
+  // Collect all CSV paths
+  const csvPaths = [];
+  for (const [path, entry] of Object.entries(zip.files)) {
+    if (!entry.dir && path.endsWith('.csv')) csvPaths.push(path);
+  }
+  if (!csvPaths.length) throw new Error('No CSV files found in ZIP');
+
+  // Phase 1: Detect structure.
+  // Look for tier folders (Mandatory/Optional/Internal) to find locale depth.
+  // If none found, detect wrapper by checking if all paths share a common first segment.
+  let localeDepth, fileStartDepth;
+  let tierDepth = -1;
+
+  for (const p of csvPaths) {
+    const parts = p.split('/').filter(Boolean);
+    for (let i = 0; i < parts.length; i++) {
+      if (TIER_FOLDERS.has(parts[i])) {
+        if (tierDepth === -1 || i < tierDepth) tierDepth = i;
+        break;
+      }
+    }
+  }
+
+  if (tierDepth >= 1) {
+    // Tier folders found: locale is the segment before the tier folder
+    localeDepth = tierDepth - 1;
+    fileStartDepth = tierDepth;
+  } else {
+    // No tier folders — flat structure like wrapper/en/file.csv or en/file.csv
+    // Check if all paths share one common first segment (= wrapper folder)
+    const firstSegs = new Set();
+    let minDepth = Infinity;
+    for (const p of csvPaths) {
+      const parts = p.split('/').filter(Boolean);
+      firstSegs.add(parts[0]);
+      minDepth = Math.min(minDepth, parts.length);
+    }
+
+    if (firstSegs.size === 1 && minDepth >= 3) {
+      // Single common first segment with enough depth: it's a wrapper
+      localeDepth = 1;
+      fileStartDepth = 2;
+    } else {
+      // First segments are the locales themselves (en/file.csv)
+      localeDepth = 0;
+      fileStartDepth = 1;
+    }
+  }
+
+  // Phase 2: Parse CSV files using detected structure
+  for (const [path, entry] of Object.entries(zip.files)) {
+    if (entry.dir || !path.endsWith('.csv')) continue;
+    const parts = path.split('/').filter(Boolean);
+    if (parts.length < fileStartDepth + 1) continue;
+
+    const locale = parts[localeDepth];
+    const relPath = parts.slice(fileStartDepth).join('/');
+
+    if (!locales[locale]) locales[locale] = {};
+    if (!locales[locale][relPath]) locales[locale][relPath] = [];
+
+    const text = await entry.async('text');
+    const clean = text.replace(/^\uFEFF/, '');
+    const parsed = Papa.parse(clean, { header: false, skipEmptyLines: true });
+
+    for (const row of parsed.data) {
+      if (row.length < 1) continue;
+      const key = (row[0] || '').trim();
+      const value = row.length > 1 ? (row[1] || '').trim() : '';
+      if (!key || key.toUpperCase() === 'KEY' || key.toUpperCase() === 'NAME') continue;
+      locales[locale][relPath].push({ key, value });
+    }
+  }
+  return locales;
+}
+
+// ── Drop zone ──
+const dropZone = $('dropZone'), zipInput = $('zipInput');
+dropZone.onclick = () => zipInput.click();
+zipInput.onchange = () => { if (zipInput.files[0]) handleZip(zipInput.files[0]); };
+dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
+dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+dropZone.ondrop = e => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleZip(e.dataTransfer.files[0]); };
+
+async function handleZip(file) {
+  $('dropTitle').textContent = 'Loading...';
+  $('dropSub').textContent = '';
+  try {
+    originalZipName = file.name.replace(/\.zip$/i, '');
+    packData = await parseZip(file);
+    const locales = Object.keys(packData).sort();
+    if (!locales.length) throw new Error('No locale folders found in ZIP');
+    state.locales = locales;
+
+    dropZone.classList.add('loaded');
+    $('dropTitle').textContent = 'Language pack loaded';
+    $('dropSub').textContent = locales.length + ' languages: ' + locales.join(', ');
+
+    // Reference is always English — find any en-like locale in the pack
+    const enLocale = locales.find(l => l.toLowerCase().startsWith('en'));
+    if (!enLocale) throw new Error('No English locale found in ZIP — English is required as the reference language');
+    state.refLocale = enLocale;
+
+    // Restore previous editing locale if it's still in this pack, else pick first non-English
+    const prevEdit = state.editLocale;
+    state.editLocale = (locales.includes(prevEdit) && prevEdit !== enLocale)
+      ? prevEdit
+      : (locales.find(l => l !== enLocale) || enLocale);
+
+    populateLocaleSelectors();
+    buildMergedView();
+    showEditor();
+    computeAll();
+    saveToStorage();
+  } catch (e) {
+    dropZone.classList.remove('loaded');
+    $('dropTitle').textContent = 'Error loading ZIP';
+    $('dropSub').textContent = e.message;
+  }
+}
+
+function populateLocaleSelectors() {
+  const editSel = $('editLocale');
+  editSel.innerHTML = '';
+  // Editing dropdown only shows non-English locales
+  for (const loc of state.locales) {
+    if (loc === state.refLocale) continue;
+    editSel.appendChild(new Option(loc, loc));
+  }
+  editSel.value = state.editLocale;
+  $('refLocaleLabel').textContent = 'English (' + state.refLocale + ')';
+  $('refColLabel').textContent = 'Reference (' + state.refLocale + ')';
+  $('editColLabel').textContent = 'Translation (' + state.editLocale + ')';
+}
+
+// ── Build merged view from packData + edits ──
+function buildMergedView() {
+  if (!packData) return;
+  const ref = packData[state.refLocale] || {};
+  const edit = packData[state.editLocale] || {};
+  const userEdits = (state.edits[state.editLocale]) || {};
+
+  const allFileKeys = [...new Set([...Object.keys(ref), ...Object.keys(edit)])].sort();
+
+  state.files = {};
+  for (const file of allFileKeys) {
+    const refEntries = ref[file] || [];
+    const editEntries = edit[file] || [];
+    const editMap = {};
+    for (const e of editEntries) editMap[e.key] = e.value;
+    const fileEdits = userEdits[file] || {};
+
+    // Start with ref keys (preserves ordering)
+    state.files[file] = refEntries.map(e => {
+      const originalTarget = editMap[e.key] ?? '';
+      const target = (file in userEdits && e.key in fileEdits) ? fileEdits[e.key] : originalTarget;
+      return { key: e.key, ref: e.value, target, originalTarget };
+    });
+
+    // Add edit-only keys (extra keys not in reference)
+    const refKeys = new Set(refEntries.map(e => e.key));
+    for (const e of editEntries) {
+      if (!refKeys.has(e.key)) {
+        const target = (file in userEdits && e.key in fileEdits) ? fileEdits[e.key] : e.value;
+        state.files[file].push({ key: e.key, ref: '', target, originalTarget: e.value, extraKey: true });
+      }
+    }
+  }
+
+}
+
+function showEditor() {
+  $('emptyState').style.display = 'none';
+  for (const id of ['toolbar','progressSection','filterBar','tableContainer','validationPanel','statusBar'])
+    $(id).style.display = id === 'toolbar' ? 'flex' : id === 'filterBar' ? 'flex' : 'block';
+  $('statusBar').style.display = 'flex';
+  $('dedupToggle').checked = state.dedup;
+  $('untranslatedToggle').checked = state.filter.untranslated;
+}
+
+// ── Locale switching ──
+$('editLocale').addEventListener('change', () => {
+  state.editLocale = $('editLocale').value;
+  $('editColLabel').textContent = 'Translation (' + state.editLocale + ')';
+  buildMergedView(); computeAll(); saveToStorage();
+});
+
+// ── Compute & Render ──
+// Pipeline: computeFlat → applyScope → applyFilter → validate → render*
+//   computeFlat : state.files  → state.allRows   (per-key, all tiers)
+//   applyScope  : state.allRows → state.viewRows (scope gate + optional dedup)
+//   applyFilter : state.viewRows → state.flatRows (search/status/file)
+function computeAll() {
+  computeFlat();
+  applyScope();
+  validate();
+  applyFilter();       // runs after validate so the "warnings" filter can see validation output
+  renderProgress();
+  renderTable();
+  renderValidation();
+  renderStatus();
+}
+
+function computeFlat() {
+  state.allRows = [];
+  for (const [file, rows] of Object.entries(state.files)) {
+    for (let i = 0; i < rows.length; i++) {
+      state.allRows.push({ ...rows[i], file, index: i });
+    }
+  }
+}
+
+// Scope + dedup. Produces `viewRows`, the canonical list of virtual rows the
+// user sees. Each viewRow is either:
+//   { kind: 'single', file, key, ref, target, originalTarget, extraKey?, conflict? }
+//   { kind: 'group',  ref, target, originalTarget, members: [{file,key,originalTarget}], count }
+function applyScope() {
+  let rows = viewFilter(state.allRows);
+
+  if (!state.dedup) {
+    state.viewRows = rows.map(r => ({
+      kind: 'single',
+      file: r.file, key: r.key,
+      ref: r.ref, target: r.target,
+      originalTarget: r.originalTarget,
+      extraKey: r.extraKey,
+    }));
+    return;
+  }
+
+  // 2. Group by exact ref value (non-empty only). Empty-ref rows stay as singles.
+  const groups = new Map();              // ref → array of row refs
+  const singles = [];
+  for (const r of rows) {
+    if (!r.ref) { singles.push(r); continue; }
+    if (!groups.has(r.ref)) groups.set(r.ref, []);
+    groups.get(r.ref).push(r);
+  }
+
+  const viewRows = [];
+  for (const [ref, members] of groups) {
+    if (members.length === 1) { singles.push(members[0]); continue; }
+
+    // Safety: only merge when every member is either empty or shares the same non-empty target.
+    // Otherwise split back into singles and flag each as conflict so validate() can pick it up.
+    const nonEmpty = members.map(m => m.target).filter(Boolean);
+    const allMatch = nonEmpty.length === 0 || nonEmpty.every(v => v === nonEmpty[0]);
+    if (!allMatch) {
+      for (const m of members) singles.push({ ...m, conflict: true, conflictRef: ref, conflictCount: members.length });
+      continue;
+    }
+
+    // Mergeable group. Pick the shared target (first non-empty, or empty).
+    const sharedTarget = nonEmpty[0] || '';
+    // originalTarget aggregate: if any member's originalTarget differs from sharedTarget,
+    // the group counts as modified. Use the first non-empty original, else empty.
+    const nonEmptyOrig = members.map(m => m.originalTarget).filter(Boolean);
+    const sharedOriginal = nonEmptyOrig.length && nonEmptyOrig.every(v => v === nonEmptyOrig[0])
+      ? nonEmptyOrig[0] : '';
+    viewRows.push({
+      kind: 'group',
+      ref,
+      target: sharedTarget,
+      originalTarget: sharedOriginal,
+      members: members.map(m => ({ file: m.file, key: m.key, originalTarget: m.originalTarget })),
+      count: members.length,
+    });
+  }
+
+  // Append singles (including conflict-split members). Wrap them as kind:'single'.
+  for (const r of singles) {
+    viewRows.push({
+      kind: 'single',
+      file: r.file, key: r.key,
+      ref: r.ref, target: r.target,
+      originalTarget: r.originalTarget,
+      extraKey: r.extraKey,
+      conflict: r.conflict,
+      conflictRef: r.conflictRef,
+      conflictCount: r.conflictCount,
+    });
+  }
+
+  state.viewRows = viewRows;
+}
+
+function applyFilter() {
+  let rows = state.viewRows;
+  const search = state.filter.search;
+  if (search) {
+    const q = search.toLowerCase();
+    rows = rows.filter(r => {
+      if (r.ref && r.ref.toLowerCase().includes(q)) return true;
+      if (r.target && r.target.toLowerCase().includes(q)) return true;
+      if (r.kind === 'single') return r.key.toLowerCase().includes(q);
+      return r.members.some(m => m.key.toLowerCase().includes(q));
+    });
+  }
+  if (state.filter.untranslated) rows = rows.filter(r => !r.target);
+  state.flatRows = rows;
+}
+
+// Validation focuses on *actionable* data-integrity issues, not translation progress.
+// Missing translations are shown via progress bars and red row highlighting.
+//
+// Validation respects the current view: we only walk files matching the
+// selected tier/file so the user isn't pestered about out-of-view noise.
+function validate() {
+  state.validation = [];
+  const inView = new Set(viewFilter(state.allRows).map(r => r.file));
+  for (const [file, rows] of Object.entries(state.files)) {
+    if (!inView.has(file)) continue;
+    const seen = {};
+    for (const row of rows) {
+      // Duplicate key within the same CSV — Chargebee rejects these on upload.
+      if (seen[row.key])
+        state.validation.push({ type: 'error', file, key: row.key, msg: 'Duplicate key' });
+      seen[row.key] = true;
+
+      // Key exists in target locale but not in the English reference. This is
+      // informational — Chargebee processes each locale independently, so it
+      // usually won't reject the upload — but it often signals stale data.
+
+      // 500-char limit: only flag when the user's translation is the one that
+      // pushed it over. Chargebee ships some default strings already >500 chars
+      // (legal text, etc.) — flagging those would blame the user for Chargebee's
+      // own shipped content.
+      if (row.target && row.target.length > 500 && (!row.ref || row.ref.length <= 500))
+        state.validation.push({ type: 'warning', file, key: row.key, msg: 'Translation exceeds 500 chars (' + row.target.length + ') \u2014 Chargebee may truncate' });
+
+      // Placeholder tokens like {name}, {amount} must match between source and
+      // target, otherwise rendered output is broken.
+      if (row.ref && row.target) {
+        const sp = (row.ref.match(/\{[^}]+\}/g) || []).sort();
+        const tp = (row.target.match(/\{[^}]+\}/g) || []).sort();
+        if (JSON.stringify(sp) !== JSON.stringify(tp))
+          state.validation.push({ type: 'warning', file, key: row.key, msg: 'Placeholder mismatch: ref has ' + (sp.join(',')||'none') + ', target has ' + (tp.join(',')||'none') });
+      }
+    }
+  }
+
+  // Dedup conflict warnings: one per group of keys that share an English value
+  // but already have different non-empty translations in the pack. We emit the
+  // warning against the first member's (file,key) so it's clickable, but the
+  // message names the English value so all members can be found.
+  const seenConflict = new Set();
+  for (const v of state.viewRows) {
+    if (v.kind !== 'single' || !v.conflict) continue;
+    if (seenConflict.has(v.conflictRef)) continue;
+    seenConflict.add(v.conflictRef);
+    const preview = v.conflictRef.length > 40 ? v.conflictRef.slice(0, 37) + '\u2026' : v.conflictRef;
+    state.validation.push({
+      type: 'warning',
+      file: v.file,
+      key: v.key,
+      msg: v.conflictCount + ' keys share the English value "' + preview + '" but have different translations',
+    });
+  }
+}
+
+function renderProgress() {
+  // Per-tier aggregates are always computed across all three tiers so the user
+  // can see the full picture. The overall % and numbers on top are scoped to
+  // whatever the user currently has in view (Mandatory only vs. All tiers).
+  const tiers = {};
+  for (const [file, rows] of Object.entries(state.files)) {
+    const folder = file.split('/')[0];
+    if (!tiers[folder]) tiers[folder] = { total: 0, translated: 0, files: 0 };
+    tiers[folder].files++;
+    for (const row of rows) { tiers[folder].total++; if (row.target) tiers[folder].translated++; }
+  }
+
+  // Overall stats reflect current view
+  const inView = new Set(viewFilter(state.allRows).map(r => r.file));
+  let total = 0, translated = 0, missing = 0, modified = 0;
+  for (const [file, rows] of Object.entries(state.files)) {
+    if (!inView.has(file)) continue;
+    for (const row of rows) {
+      total++; if (row.target) translated++; else missing++;
+      if (row.target !== row.originalTarget) modified++;
+    }
+  }
+  const pct = total ? Math.round((translated / total) * 100) : 0;
+  $('progressBar').style.width = pct + '%';
+  $('progressBar').style.background = pct === 100 ? 'var(--green)' : 'var(--primary)';
+  $('progressStats').innerHTML =
+    `<span class="stat"><span class="dot" style="background:var(--primary)"></span> ${translated}/${total} (${pct}%)</span>` +
+    `<span class="stat"><span class="dot" style="background:var(--red)"></span> ${missing} missing</span>` +
+    `<span class="stat"><span class="dot" style="background:var(--blue)"></span> ${modified} modified</span>` +
+    `<span class="stat"><span class="dot" style="background:var(--yellow)"></span> ${state.validation.filter(v=>v.type==='warning').length} warnings</span>`;
+
+  // Per-group progress bars (Internal vs Other)
+  const fp = $('fileProgress'); fp.innerHTML = '';
+  if (packHasTiers()) {
+    const groups = { Internal: { total: 0, translated: 0, files: 0 }, Other: { total: 0, translated: 0, files: 0 } };
+    for (const [tier, d] of Object.entries(tiers)) {
+      const g = tier === 'Internal' ? groups.Internal : groups.Other;
+      g.total += d.total; g.translated += d.translated; g.files += d.files;
+    }
+    for (const [label, d] of Object.entries(groups)) {
+      if (!d.total) continue;
+      const p = Math.round((d.translated / d.total) * 100);
+      const c = p === 100 ? 'var(--green)' : p > 50 ? 'var(--primary)' : p > 0 ? 'var(--yellow)' : 'var(--red)';
+      fp.innerHTML += `<div class="file-progress-item"><span class="tier-label">${label}</span><div class="file-progress-bar"><div style="width:${p}%;background:${c}"></div></div><span class="file-progress-pct">${p}%</span><span class="file-progress-detail">${d.translated}/${d.total} in ${d.files} files</span></div>`;
+    }
+  }
+
+  // Populate unified view dropdown — tiers + individual files with progress
+  renderViewDropdown();
+}
+
+function renderViewDropdown() {
+  const sel = $('viewFilter');
+  if (!sel) return;
+
+  const fileCounts = {};
+  for (const [file, rows] of Object.entries(state.files)) {
+    if (!rows.length) continue;
+    let tr = 0;
+    for (const row of rows) { if (row.target) tr++; }
+    fileCounts[file] = { total: rows.length, translated: tr };
+  }
+
+  sel.innerHTML = '';
+  const allFiles = Object.keys(fileCounts).sort();
+  const allTotal = allFiles.reduce((a, f) => a + fileCounts[f].total, 0);
+  const allTr = allFiles.reduce((a, f) => a + fileCounts[f].translated, 0);
+
+  sel.appendChild(new Option('All (' + allTr + '/' + allTotal + ')', 'all'));
+
+  if (packHasTiers()) {
+    const internalFiles = allFiles.filter(f => fileTier(f) === 'Internal');
+    const otherFiles = allFiles.filter(f => fileTier(f) !== 'Internal');
+    const addGroup = (label, value, files) => {
+      if (!files.length) return;
+      const gt = files.reduce((a, f) => a + fileCounts[f].total, 0);
+      const gtr = files.reduce((a, f) => a + fileCounts[f].translated, 0);
+      const grp = document.createElement('optgroup');
+      grp.label = label;
+      grp.appendChild(new Option('\u25B8 All ' + label + ' (' + gtr + '/' + gt + ')', value));
+      for (const file of files) {
+        const c = fileCounts[file];
+        const name = file.split('/').pop().replace(/\.csv$/i, '');
+        grp.appendChild(new Option(name + ' (' + c.translated + '/' + c.total + ')', file));
+      }
+      sel.appendChild(grp);
+    };
+    addGroup('Internal', 'tier:Internal', internalFiles);
+    addGroup('Other', 'tier:Other', otherFiles);
+  } else {
+    for (const file of allFiles) {
+      const c = fileCounts[file];
+      const name = file.split('/').pop().replace(/\.csv$/i, '');
+      sel.appendChild(new Option(name + ' (' + c.translated + '/' + c.total + ')', file));
+    }
+  }
+
+  sel.value = state.filter.view;
+  // If the saved view doesn't match any option (stale localStorage), reset to default
+  if (sel.value !== state.filter.view) {
+    state.filter.view = 'all';
+    sel.value = 'all';
+  }
+}
+
+// Check whether a virtual row (single or group) has any validation warning/error.
+function rowHasWarning(r) {
+  if (r.kind === 'group') {
+    return r.members.some(m => state.validation.some(v =>
+      v.file === m.file && v.key === m.key && (v.type === 'warning' || v.type === 'error')));
+  }
+  return state.validation.some(v =>
+    v.file === r.file && v.key === r.key && (v.type === 'warning' || v.type === 'error'));
+}
+
+function renderTable() {
+  const rows = state.flatRows;
+  const html = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const isGroup = r.kind === 'group';
+    const isMissing = r.ref && !r.target;
+    const isModified = r.target !== r.originalTarget;
+    const hasWarn = rowHasWarning(r);
+    const cls = isMissing ? 'missing' : hasWarn ? 'warning' : isModified ? 'modified' : '';
+    const icon = isMissing ? '&#9744;' : hasWarn ? '&#9888;' : isModified ? '&#9998;' : r.target ? '&#10003;' : '';
+    const ic = isMissing ? 'var(--red)' : hasWarn ? 'var(--yellow)' : isModified ? 'var(--blue)' : 'var(--green)';
+
+    let badgeHtml, keyCellHtml;
+    if (isGroup) {
+      // Group chip: ×N, tooltip lists first 5 members
+      const tip = r.members.slice(0, 5).map(m => m.file + ' \u2192 ' + m.key).join('\n')
+        + (r.count > 5 ? '\n+ ' + (r.count - 5) + ' more' : '');
+      // If every member is in the same tier, colour the chip by that tier; else use the group colour
+      const tiers = new Set(r.members.map(m => m.file.split('/')[0]));
+      const soleTier = tiers.size === 1 ? [...tiers][0] : null;
+      const tierCls = soleTier === 'Mandatory' ? 'file-mandatory'
+        : soleTier === 'Optional' ? 'file-optional'
+        : soleTier === 'Internal' ? 'file-internal'
+        : 'file-group';
+      badgeHtml = `<span class="file-badge ${tierCls}" title="${escAttr(tip)}">\u00d7${r.count}</span>`;
+      // Show first member's short key + "+N more" to give the user something concrete
+      const firstKey = r.members[0].key;
+      const shortKey = firstKey.length > 28 ? '\u2026' + firstKey.slice(-25) : firstKey;
+      keyCellHtml = `<span class="key-cell" title="${escAttr(tip)}">${escHtml(shortKey)} <span style="color:var(--text3)">+${r.count - 1} more</span></span>`;
+    } else {
+      const folder = r.file.split('/')[0];
+      const fc = folder === 'Mandatory' ? 'file-mandatory' : folder === 'Optional' ? 'file-optional' : 'file-internal';
+      const shortFile = r.file.split('/').pop().replace('.csv','');
+      badgeHtml = `<span class="file-badge ${fc}" title="${escHtml(r.file)}">${escHtml(shortFile)}</span>`;
+      keyCellHtml = `<span class="key-cell" title="${escHtml(r.key)}">${escHtml(r.key)}</span>`;
+    }
+
+    html.push(
+      `<div class="table-row ${cls}" data-idx="${i}">`
+      + badgeHtml
+      + keyCellHtml
+      + `<span class="source-cell" title="${escHtml(r.ref)}">${escHtml(r.ref)}</span>`
+      + `<span><input class="target-input" value="${escAttr(r.target)}" data-idx="${i}" placeholder="Enter translation..."></span>`
+      + `<span class="row-icon" style="color:${ic}">${icon}</span>`
+      + `</div>`
+    );
+  }
+  $('tableScroll').innerHTML = html.join('');
+
+  const fc = $('filterCount');
+  // allRows count is per-key, flatRows count is per-viewRow (may be smaller due to grouping).
+  // Show the filter count whenever the rendered row count differs from the unscoped/ungrouped total.
+  if (state.flatRows.length !== state.allRows.length) {
+    fc.style.display = 'inline'; fc.textContent = state.flatRows.length + ' / ' + state.allRows.length;
+  } else fc.style.display = 'none';
+}
+
+function renderValidation() {
+  const issues = state.validation;
+  $('validationCount').textContent = issues.length;
+  $('validationCount').className = 'badge ' + (issues.some(v=>v.type==='error') ? 'badge-error' : issues.length ? 'badge-warn' : 'badge-info');
+  const list = $('validationList');
+  if (!issues.length) { list.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text3);font-size:13px;">No issues found</div>'; return; }
+  list.innerHTML = issues.slice(0,200).map(v => {
+    const icon = v.type === 'error' ? '&#10060;' : '&#9888;';
+    const color = v.type === 'error' ? 'var(--red)' : 'var(--yellow)';
+    const shortKey = v.key.length > 35 ? '...' + v.key.slice(-32) : v.key;
+    return `<div class="validation-item" data-file="${escAttr(v.file)}" data-key="${escAttr(v.key)}"><span style="color:${color}">${icon}</span><span style="color:var(--text2);font-family:monospace;min-width:100px;font-size:11px;">${escHtml(shortKey)}</span><span>${escHtml(v.msg)}</span><span style="color:var(--text3);margin-left:auto;font-size:11px;">${v.file.split('/').pop()}</span></div>`;
+  }).join('') + (issues.length > 200 ? '<div style="padding:8px 12px;color:var(--text3);font-size:12px;">...and ' + (issues.length-200) + ' more</div>' : '');
+}
+
+function renderStatus() {
+  const scoped = viewFilter(state.allRows);
+  const total = scoped.length;
+  const translated = scoped.filter(r => r.target).length;
+  const modified = scoped.filter(r => r.target !== r.originalTarget).length;
+  const errors = state.validation.filter(v => v.type === 'error').length;
+  const warnings = state.validation.filter(v => v.type === 'warning').length;
+  const missing = total - translated;
+  $('statusLeft').textContent = 'Total: ' + total + ' | Translated: ' + translated + ' | Missing: ' + missing + ' | Modified: ' + modified;
+  let right = '';
+  if (errors) right += '<span class="badge badge-error">' + errors + ' errors</span> ';
+  if (warnings) right += '<span class="badge badge-warn">' + warnings + ' warnings</span>';
+  $('statusRight').innerHTML = right;
+}
+
+// ── Inline editing ──
+// Apply a translation value to a list of {file,key} pairs. For dedup groups
+// this updates every member so a single keystroke propagates to all keys
+// sharing the same English value.
+function writeTranslation(pairs, val) {
+  if (!state.edits[state.editLocale]) state.edits[state.editLocale] = {};
+  const locEdits = state.edits[state.editLocale];
+  for (const { file, key } of pairs) {
+    const row = state.files[file]?.find(r => r.key === key);
+    if (row) row.target = val;
+    if (!locEdits[file]) locEdits[file] = {};
+    locEdits[file][key] = val;
+  }
+}
+
+$('tableScroll').addEventListener('input', e => {
+  if (!e.target.classList.contains('target-input')) return;
+  const idx = parseInt(e.target.dataset.idx, 10);
+  const vr = state.flatRows[idx];
+  if (!vr) return;
+  const val = e.target.value;
+  // Also mirror the new value onto the virtual row so subsequent reads (search,
+  // debounced recompute) see the current typed value immediately.
+  vr.target = val;
+  const pairs = vr.kind === 'group'
+    ? vr.members.map(m => ({ file: m.file, key: m.key }))
+    : [{ file: vr.file, key: vr.key }];
+  writeTranslation(pairs, val);
+  debouncedSave();
+  debouncedRecompute();
+});
+
+$('tableScroll').addEventListener('keydown', e => {
+  if (!e.target.classList.contains('target-input')) return;
+  const inputs = [...$('tableScroll').querySelectorAll('.target-input')];
+  const idx = inputs.indexOf(e.target);
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    for (let i = idx + 1; i < inputs.length; i++) if (!inputs[i].value) { inputs[i].focus(); return; }
+    for (let i = 0; i < idx; i++) if (!inputs[i].value) { inputs[i].focus(); return; }
+  }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const next = e.shiftKey ? idx - 1 : idx + 1;
+    if (next >= 0 && next < inputs.length) inputs[next].focus();
+  }
+});
+
+function debouncedRecompute() {
+  clearTimeout(debouncedRecompute._t);
+  debouncedRecompute._t = setTimeout(() => {
+    // Rebuild pipeline from state.files (which was mutated by the input handler).
+    computeFlat();
+    applyScope();
+    validate();
+    applyFilter();
+    renderProgress();
+    renderValidation();
+    renderStatus();
+    // Update row classes + icons in-place without re-rendering the whole table
+    // (preserves the focused input + cursor position).
+    $('tableScroll').querySelectorAll('.table-row').forEach(el => {
+      const i = parseInt(el.dataset.idx);
+      const r = state.flatRows[i]; if (!r) return;
+      const isMissing = r.ref && !r.target;
+      const isModified = r.target !== r.originalTarget;
+      const hasWarn = rowHasWarning(r);
+      el.className = 'table-row ' + (isMissing ? 'missing' : hasWarn ? 'warning' : isModified ? 'modified' : '');
+      const ic = el.querySelector('.row-icon');
+      if (ic) {
+        if (isMissing) { ic.innerHTML = '&#9744;'; ic.style.color = 'var(--red)'; }
+        else if (hasWarn) { ic.innerHTML = '&#9888;'; ic.style.color = 'var(--yellow)'; }
+        else if (isModified) { ic.innerHTML = '&#9998;'; ic.style.color = 'var(--blue)'; }
+        else if (r.target) { ic.innerHTML = '&#10003;'; ic.style.color = 'var(--green)'; }
+        else { ic.innerHTML = ''; }
+      }
+    });
+  }, 300);
+}
+
+// ── Validation click-to-navigate ──
+$('validationList').addEventListener('click', e => {
+  const item = e.target.closest('.validation-item'); if (!item) return;
+  const file = item.dataset.file, key = item.dataset.key;
+  state.filter = { search: '', view: 'all' };
+  $('searchInput').value = '';
+  applyScope(); applyFilter(); renderTable(); renderProgress();
+  // Find the virtual row (single or group) that owns this (file,key) pair
+  const idx = state.flatRows.findIndex(r => r.kind === 'single'
+    ? (r.file === file && r.key === key)
+    : r.members.some(m => m.file === file && m.key === key));
+  if (idx < 0) return;
+  const input = $('tableScroll').querySelector('.target-input[data-idx="' + idx + '"]');
+  if (input) { input.scrollIntoView({ block: 'center' }); input.focus(); }
+});
+
+let validationOpen = true;
+$('validationHeader').onclick = () => {
+  validationOpen = !validationOpen;
+  $('validationList').style.display = validationOpen ? 'block' : 'none';
+  $('validationToggle').textContent = validationOpen ? '\u25BC' : '\u25B6';
+};
+
+// ── Filters ──
+$('searchInput').addEventListener('input', () => { state.filter.search = $('searchInput').value; applyFilter(); renderTable(); });
+// View filter — unified tier/file selector. Triggers full recompute.
+$('viewFilter').addEventListener('change', () => {
+  state.filter.view = $('viewFilter').value;
+  computeAll();
+  saveToStorage();
+});
+$('untranslatedToggle').addEventListener('change', () => {
+  state.filter.untranslated = $('untranslatedToggle').checked;
+  applyFilter(); renderTable();
+  saveToStorage();
+});
+
+// Dedup toggle — groups keys sharing the same English value.
+$('dedupToggle').addEventListener('change', () => {
+  state.dedup = $('dedupToggle').checked;
+  computeAll();
+  saveToStorage();
+});
+
+// ── Export ZIP ──
+$('exportBtn').addEventListener('click', async () => {
+  if (!packData) return;
+  const zip = new JSZip();
+  const ref = packData[state.refLocale] || {};
+
+  for (const locale of Object.keys(packData)) {
+    const localeFiles = packData[locale] || {};
+    const userEdits = state.edits[locale] || {};
+
+    for (const [relPath, entries] of Object.entries(localeFiles)) {
+      const fileEdits = userEdits[relPath] || {};
+      const csvRows = entries.map(e => {
+        const val = (relPath in userEdits && e.key in fileEdits) ? fileEdits[e.key] : e.value;
+        return [e.key, val];
+      });
+      zip.file(locale + '/' + relPath, '\uFEFF' + Papa.unparse(csvRows, { quotes: false, delimiter: ',' }));
+    }
+
+    // Also include files that only exist in reference (user may have added translations for them)
+    if (locale !== state.refLocale) {
+      for (const relPath of Object.keys(ref)) {
+        if (localeFiles[relPath]) continue; // already handled
+        const fileEdits = userEdits[relPath] || {};
+        if (!Object.keys(fileEdits).length) continue; // no edits for this file, skip
+        const csvRows = ref[relPath].map(e => [e.key, fileEdits[e.key] || '']);
+        zip.file(locale + '/' + relPath, '\uFEFF' + Papa.unparse(csvRows, { quotes: false, delimiter: ',' }));
+      }
+    }
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  if (blob.size > 2 * 1024 * 1024)
+    alert('Warning: ZIP is ' + (blob.size/1024/1024).toFixed(1) + 'MB \u2014 Chargebee limit is 2MB.');
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const baseName = originalZipName || 'language-pack';
+  downloadBlob(blob, baseName + '-' + ts + '.zip');
+});
+
+
+function downloadBlob(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ── localStorage ──
+const STORAGE_KEY = 'cb-translation-editor';
+
+function saveToStorage() {
+  clearTimeout(saveToStorage._t);
+  saveToStorage._t = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        editLocale: state.editLocale,
+        edits: state.edits,
+        dedup: state.dedup,
+        view: state.filter.view,
+        untranslated: state.filter.untranslated,
+      }));
+    } catch (e) { console.warn('save failed', e); }
+  }, 500);
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    // refLocale is always English — derived from the pack on load, not restored
+    if (data.editLocale) state.editLocale = data.editLocale;
+    if (data.edits) state.edits = data.edits;
+    if (typeof data.dedup === 'boolean') state.dedup = data.dedup;
+    if (data.view) state.filter.view = data.view;
+    if (data.untranslated) state.filter.untranslated = true;
+  } catch (e) { /* ignore */ }
+}
+
+// ── Clear ──
+$('clearBtn').addEventListener('click', () => {
+  if (!confirm('Clear all data and edits? This cannot be undone.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+});
+
+// ── AI Translation ──
+const AI_STORAGE_KEY = 'cb-ai-settings';
+const LOCALE_NAMES = {
+  af:'Afrikaans',ar:'Arabic',bg:'Bulgarian',bn:'Bengali',ca:'Catalan',cs:'Czech',
+  da:'Danish',de:'German',el:'Greek',es:'Spanish',et:'Estonian',fa:'Persian',
+  fi:'Finnish',fr:'French',he:'Hebrew',hi:'Hindi',hr:'Croatian',hu:'Hungarian',
+  id:'Indonesian',it:'Italian',ja:'Japanese',ko:'Korean',lt:'Lithuanian',lv:'Latvian',
+  ms:'Malay',nb:'Norwegian',nl:'Dutch',pl:'Polish',pt:'Portuguese',ro:'Romanian',
+  ru:'Russian',sk:'Slovak',sl:'Slovenian',sr:'Serbian',sv:'Swedish',th:'Thai',
+  tr:'Turkish',uk:'Ukrainian',vi:'Vietnamese',zh:'Chinese',
+};
+
+function loadAiSettings() {
+  try { return JSON.parse(localStorage.getItem(AI_STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveAiSettings(s) { localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(s)); }
+
+$('aiSettingsBtn').addEventListener('click', () => {
+  const s = loadAiSettings();
+  if (s.apiKey) $('aiApiKey').value = s.apiKey;
+  if (s.model) $('aiModel').value = s.model;
+  if (s.baseUrl) $('aiBaseUrl').value = s.baseUrl;
+  $('aiSettingsModal').style.display = 'flex';
+});
+
+$('aiSettingsSave').addEventListener('click', () => {
+  saveAiSettings({ apiKey: $('aiApiKey').value, model: $('aiModel').value, baseUrl: $('aiBaseUrl').value.replace(/\/+$/, '') });
+  $('aiSettingsModal').style.display = 'none';
+});
+
+async function aiTranslate(prompt, settings) {
+  const isAnthropicDirect = !settings.baseUrl || settings.baseUrl.includes('api.anthropic.com');
+  const base = (settings.baseUrl || 'https://api.anthropic.com/v1').replace(/\/+$/, '');
+  const url = base + (base.endsWith('/messages') ? '' : '/messages');
+  const headers = { 'Content-Type': 'application/json' };
+  if (isAnthropicDirect) {
+    headers['x-api-key'] = settings.apiKey;
+    headers['anthropic-version'] = '2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+  } else {
+    headers['Authorization'] = 'Bearer ' + settings.apiKey;
+  }
+  const res = await fetch(url, {
+    method: 'POST', headers,
+    body: JSON.stringify({ model: settings.model || 'claude-haiku-4-5-20251001', max_tokens: 4096, messages: [{ role: 'user', content: prompt }] }),
+  });
+  if (!res.ok) throw new Error('Claude API error: ' + res.status + ' ' + (await res.text()));
+  const data = await res.json();
+  return data.content[0].text;
+}
+
+$('aiTranslateBtn').addEventListener('click', async () => {
+  const settings = loadAiSettings();
+  if (!settings.apiKey) { $('aiSettingsModal').style.display = 'flex'; return; }
+
+  // Collect untranslated rows in current view that have an English ref
+  const rows = state.flatRows.filter(r => !r.target && r.ref);
+  if (!rows.length) { alert('No untranslated rows with English reference in the current view.'); return; }
+
+  const localeName = LOCALE_NAMES[state.editLocale.split('-')[0].toLowerCase()] || state.editLocale;
+  const btn = $('aiTranslateBtn');
+  const origText = btn.textContent;
+  btn.disabled = true;
+
+  // Batch into chunks of 30, cap at 3 batches (90 keys)
+  const BATCH = 30;
+  const MAX_BATCHES = 3;
+  const batches = [];
+  for (let i = 0; i < rows.length; i += BATCH) batches.push(rows.slice(i, i + BATCH));
+  const total = batches.length;
+  const capped = batches.length > MAX_BATCHES;
+  if (capped) batches.length = MAX_BATCHES;
+
+  try {
+    for (let b = 0; b < batches.length; b++) {
+      btn.textContent = 'Translating... (' + (b + 1) + '/' + batches.length + ')';
+      const batch = batches[b];
+      const keyMap = {};
+      for (const r of batch) {
+        const k = r.kind === 'group' ? r.members[0].key : r.key;
+        keyMap[k] = r.ref;
+      }
+
+      const prompt = 'Translate the following UI strings from English to ' + localeName + '.\n' +
+        'Return ONLY a JSON object mapping each key to its translation. No markdown, no explanation.\n\n' +
+        JSON.stringify(keyMap, null, 2);
+
+      const raw = await aiTranslate(prompt, settings);
+      // Extract JSON from response (handle markdown code blocks)
+      const jsonStr = raw.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim();
+      const translations = JSON.parse(jsonStr);
+
+      for (const r of batch) {
+        const k = r.kind === 'group' ? r.members[0].key : r.key;
+        const val = translations[k];
+        if (val == null) continue;
+        const pairs = r.kind === 'group' ? r.members.map(m => ({ file: m.file, key: m.key })) : [{ file: r.file, key: r.key }];
+        writeTranslation(pairs, val);
+      }
+    }
+    computeAll();
+    saveToStorage();
+    const translated = batches.reduce((a, b) => a + b.length, 0);
+    if (capped) {
+      alert('Translated ' + translated + ' keys (' + MAX_BATCHES + ' of ' + total + ' batches). Click again to continue with the next batch.');
+    }
+  } catch (e) {
+    alert('AI translation error: ' + e.message);
+    computeAll(); saveToStorage();
+  } finally {
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
+});
+
+// ── Init ──
+initTheme();
+loadFromStorage();
+
+})();
+</script>
+</body>
+</html>
