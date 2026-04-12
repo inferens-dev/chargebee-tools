@@ -327,6 +327,24 @@ function toggleDeletion(pairs) {
   if (!Object.keys(state.deletions[loc]).length) delete state.deletions[loc];
 }
 
+// Returns true when key appears more than once in state.files[file] (true duplicate).
+function hasTrueDuplicate(file, key) {
+  return (state.files[file]?.filter(r => r.key === key).length ?? 0) > 1;
+}
+
+// Remove all but the first occurrence of key in state.files[file].
+// Called instead of toggleDeletion when the user resolves a duplicate-key error.
+function resolveDuplicate(file, key) {
+  let kept = false;
+  state.files[file] = state.files[file].filter(r => {
+    if (r.key !== key) return true;
+    if (!kept) { kept = true; return true; }
+    return false;
+  });
+  computeAll();
+  saveToStorage();
+}
+
 // Does this pack use tier folders (Mandatory/Optional/Internal)?
 function packHasTiers() {
   return Object.keys(state.files).some(f => isMandatoryFile(f));
@@ -909,8 +927,9 @@ function renderTable() {
     }
 
     const inputDisabled = rowDel ? ' disabled' : '';
-    const delTitle = rowDel ? 'Restore' : 'Mark for deletion';
-    const delIcon = rowDel ? '&#x21BA;' : '&#x2715;';
+    const isDup = r.kind === 'single' ? hasTrueDuplicate(r.file, r.key) : r.members?.some(m => hasTrueDuplicate(m.file, m.key));
+    const delTitle = isDup ? 'Resolve duplicate (keep first copy)' : rowDel ? 'Restore' : 'Mark for deletion';
+    const delIcon = isDup ? '&#x29B8;' : rowDel ? '&#x21BA;' : '&#x2715;';
     html.push(
       `<div class="table-row ${cls}" data-idx="${i}">`
       + badgeHtml
@@ -1008,10 +1027,26 @@ $('tableScroll').addEventListener('click', e => {
   const idx = parseInt(btn.dataset.idx, 10);
   const r = state.flatRows[idx];
   if (!r) return;
-  const pairs = r.kind === 'group'
-    ? r.members.map(m => ({ file: m.file, key: m.key }))
-    : [{ file: r.file, key: r.key }];
-  toggleDeletion(pairs);
+
+  if (r.kind === 'single' && hasTrueDuplicate(r.file, r.key)) {
+    resolveDuplicate(r.file, r.key);
+    return;
+  }
+  if (r.kind === 'group') {
+    const dupeMembers = r.members.filter(m => hasTrueDuplicate(m.file, m.key));
+    const normalMembers = r.members.filter(m => !hasTrueDuplicate(m.file, m.key));
+    const seen = new Set();
+    for (const m of dupeMembers) {
+      const id = m.file + '\x00' + m.key;
+      if (!seen.has(id)) { seen.add(id); resolveDuplicate(m.file, m.key); }
+    }
+    if (normalMembers.length) toggleDeletion(normalMembers.map(m => ({ file: m.file, key: m.key })));
+    computeAll();
+    saveToStorage();
+    return;
+  }
+
+  toggleDeletion([{ file: r.file, key: r.key }]);
   computeAll();
   saveToStorage();
 });
