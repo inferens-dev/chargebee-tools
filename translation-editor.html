@@ -93,9 +93,9 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 .badge-info { background: var(--blue-bg); color: var(--blue); }
 
 .table-container { position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); margin-top: 12px; box-shadow: var(--shadow-sm); }
-.table-header { display: grid; grid-template-columns: 130px 240px 1fr 1fr 36px; align-items: center; padding: 0 16px; height: 42px; background: var(--bg2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; position: sticky; top: 0; z-index: 2; }
+.table-header { display: grid; grid-template-columns: 130px 240px 1fr 1fr 36px 32px; align-items: center; padding: 0 16px; height: 42px; background: var(--bg2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; position: sticky; top: 0; z-index: 2; }
 .table-scroll { overflow-y: auto; max-height: calc(100vh - 380px); min-height: 300px; }
-.table-row { display: grid; grid-template-columns: 130px 240px 1fr 1fr 36px; align-items: center; padding: 0 16px; min-height: var(--row-h); border-bottom: 1px solid var(--border); font-size: 14px; transition: all 0.15s; border-left: 3px solid transparent; }
+.table-row { display: grid; grid-template-columns: 130px 240px 1fr 1fr 36px 32px; align-items: center; padding: 0 16px; min-height: var(--row-h); border-bottom: 1px solid var(--border); font-size: 14px; transition: all 0.15s; border-left: 3px solid transparent; }
 .table-row:hover { background: var(--bg2); }
 .table-row:focus-within { border-left-color: var(--primary); background: var(--primary-light); }
 .table-row.missing { background: var(--red-bg); }
@@ -118,6 +118,14 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 .target-input:focus { border-color: var(--primary); background: var(--bg); box-shadow: 0 0 0 3px var(--primary-light); }
 .target-input:hover:not(:focus) { border-color: var(--border); background: var(--bg2); }
 .row-icon { font-size: 14px; text-align: center; }
+.table-row.deleted { opacity: 0.55; }
+.table-row.deleted .source-cell,
+.table-row.deleted .key-cell { text-decoration: line-through; color: var(--text3); }
+.table-row.deleted .target-input { text-decoration: line-through; pointer-events: none; }
+.delete-btn { background: none; border: none; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--text3); cursor: pointer; border-radius: 4px; transition: all 0.15s; flex-shrink: 0; }
+.delete-btn:hover { background: var(--red-bg); color: var(--red); box-shadow: none; transform: none; }
+.table-row.deleted .delete-btn { color: var(--blue); }
+.table-row.deleted .delete-btn:hover { background: var(--blue-bg); color: var(--blue); }
 
 .validation-panel { margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
 .validation-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--bg2); cursor: pointer; font-size: 13px; font-weight: 600; user-select: none; }
@@ -140,7 +148,7 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 
 @media (max-width: 900px) {
   #app { padding: 16px; }
-  .table-header, .table-row { grid-template-columns: 80px 150px 1fr 1fr 32px; padding: 0 10px; }
+  .table-header, .table-row { grid-template-columns: 80px 150px 1fr 1fr 32px 28px; padding: 0 10px; }
   .toolbar { padding: 10px 12px; }
   .drop-zone { padding: 32px 20px; }
   .header h1 { font-size: 18px; }
@@ -205,7 +213,7 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
   <!-- Table -->
   <div class="table-container" id="tableContainer" style="display:none;">
     <div class="table-header">
-      <span class="sortable" data-sort="file">File</span><span class="sortable" data-sort="key">Key</span><span class="sortable" id="refColLabel" data-sort="ref">Reference</span><span class="sortable" id="editColLabel" data-sort="target">Translation</span><span></span>
+      <span class="sortable" data-sort="file">File</span><span class="sortable" data-sort="key">Key</span><span class="sortable" id="refColLabel" data-sort="ref">Reference</span><span class="sortable" id="editColLabel" data-sort="target">Translation</span><span></span><span></span>
     </div>
     <div class="table-scroll" id="tableScroll"></div>
   </div>
@@ -282,12 +290,42 @@ const state = {
   viewRows: [],            // after scope + dedup — feeds applyFilter
   flatRows: [],            // after filters — feeds renderTable
   validation: [],
+  deletions: {},           // { locale: { "file.csv": { key: true } } } — excluded from export
 };
 
 // A file is Mandatory when its first path segment is "Mandatory".
 // Used by scope gating across the pipeline.
 const isMandatoryFile = file => file.split('/')[0] === 'Mandatory';
 const fileTier = file => file.split('/')[0]; // 'Mandatory' | 'Optional' | 'Internal' | basename
+
+// ── Deletion helpers ──
+// isDeleted / isDeletedForLocale check whether a key is queued for deletion in the export.
+const isDeleted = (file, key) => !!(state.deletions[state.editLocale]?.[file]?.[key]);
+const isDeletedForLocale = (locale, file, key) => !!(state.deletions[locale]?.[file]?.[key]);
+
+// isRowDeleted works on virtual rows (single or group).
+function isRowDeleted(r) {
+  if (r.kind === 'group') return r.members.every(m => isDeleted(m.file, m.key));
+  return isDeleted(r.file, r.key);
+}
+
+// Toggle deletion for a list of {file,key} pairs.
+// For a group: delete unless every member is already deleted (matches isRowDeleted semantics).
+function toggleDeletion(pairs) {
+  const loc = state.editLocale;
+  if (!state.deletions[loc]) state.deletions[loc] = {};
+  const newVal = !pairs.every(p => isDeleted(p.file, p.key));
+  for (const { file, key } of pairs) {
+    if (!state.deletions[loc][file]) state.deletions[loc][file] = {};
+    if (newVal) {
+      state.deletions[loc][file][key] = true;
+    } else {
+      delete state.deletions[loc][file][key];
+      if (!Object.keys(state.deletions[loc][file]).length) delete state.deletions[loc][file];
+    }
+  }
+  if (!Object.keys(state.deletions[loc]).length) delete state.deletions[loc];
+}
 
 // Does this pack use tier folders (Mandatory/Optional/Internal)?
 function packHasTiers() {
@@ -662,12 +700,18 @@ function validate() {
   const inView = new Set(viewFilter(state.allRows).map(r => r.file));
   for (const [file, rows] of Object.entries(state.files)) {
     if (!inView.has(file)) continue;
-    const seen = {};
+    // Count active (non-deleted) occurrences per key; flag any key with >1 active copy.
+    const activeCounts = {};
     for (const row of rows) {
-      // Duplicate key within the same CSV — Chargebee rejects these on upload.
-      if (seen[row.key])
-        state.validation.push({ type: 'error', file, key: row.key, msg: 'Duplicate key' });
-      seen[row.key] = true;
+      if (!isDeleted(file, row.key))
+        activeCounts[row.key] = (activeCounts[row.key] || 0) + 1;
+    }
+    for (const [dupKey, count] of Object.entries(activeCounts)) {
+      if (count > 1)
+        state.validation.push({ type: 'error', file, key: dupKey, msg: 'Duplicate key' });
+    }
+    for (const row of rows) {
+      if (isDeleted(file, row.key)) continue;
 
       // Key exists in target locale but not in the English reference. This is
       // informational — Chargebee processes each locale independently, so it
@@ -831,12 +875,13 @@ function renderTable() {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const isGroup = r.kind === 'group';
-    const isMissing = r.ref && !r.target;
-    const isModified = r.target !== r.originalTarget;
-    const hasWarn = rowHasWarning(r);
-    const cls = isMissing ? 'missing' : hasWarn ? 'warning' : r.target ? 'translated' : '';
-    const icon = isMissing ? '&#9744;' : hasWarn ? '&#9888;' : isModified ? '&#9998;' : r.target ? '&#10003;' : '';
-    const ic = isMissing ? 'var(--red)' : hasWarn ? 'var(--yellow)' : r.target ? 'var(--green)' : 'var(--text3)';
+    const rowDel = isRowDeleted(r);
+    const isMissing = !rowDel && r.ref && !r.target;
+    const isModified = !rowDel && r.target !== r.originalTarget;
+    const hasWarn = !rowDel && rowHasWarning(r);
+    const cls = rowDel ? 'deleted' : isMissing ? 'missing' : hasWarn ? 'warning' : isModified ? 'modified' : r.target ? 'translated' : '';
+    const icon = rowDel ? '' : isMissing ? '&#9744;' : hasWarn ? '&#9888;' : isModified ? '&#9998;' : r.target ? '&#10003;' : '';
+    const ic = isMissing ? 'var(--red)' : hasWarn ? 'var(--yellow)' : isModified ? 'var(--blue)' : r.target ? 'var(--green)' : 'var(--text3)';
 
     let badgeHtml, keyCellHtml;
     if (isGroup) {
@@ -863,13 +908,17 @@ function renderTable() {
       keyCellHtml = `<span class="key-cell" title="${escHtml(r.key)}">${escHtml(r.key)}</span>`;
     }
 
+    const inputDisabled = rowDel ? ' disabled' : '';
+    const delTitle = rowDel ? 'Restore' : 'Mark for deletion';
+    const delIcon = rowDel ? '&#x21BA;' : '&#x2715;';
     html.push(
       `<div class="table-row ${cls}" data-idx="${i}">`
       + badgeHtml
       + keyCellHtml
       + `<span class="source-cell" title="${escHtml(r.ref)}">${escHtml(r.ref)}</span>`
-      + `<span><input class="target-input" value="${escAttr(r.target)}" data-idx="${i}" placeholder="Enter translation..."></span>`
+      + `<span><input class="target-input"${inputDisabled} value="${escAttr(r.target)}" data-idx="${i}" placeholder="Enter translation..."></span>`
       + `<span class="row-icon" style="color:${ic}">${icon}</span>`
+      + `<button class="delete-btn" data-idx="${i}" title="${delTitle}">${delIcon}</button>`
       + `</div>`
     );
   }
@@ -906,7 +955,10 @@ function renderStatus() {
   const errors = state.validation.filter(v => v.type === 'error').length;
   const warnings = state.validation.filter(v => v.type === 'warning').length;
   const missing = total - translated;
-  $('statusLeft').textContent = 'Total: ' + total + ' | Translated: ' + translated + ' | Missing: ' + missing + ' | Modified: ' + modified;
+  const deletedCount = Object.values(state.deletions[state.editLocale] || {})
+    .reduce((n, f) => n + Object.keys(f).length, 0);
+  const delPart = deletedCount ? ' | Deleted: ' + deletedCount : '';
+  $('statusLeft').textContent = 'Total: ' + total + ' | Translated: ' + translated + ' | Missing: ' + missing + ' | Modified: ' + modified + delPart;
   let right = '';
   if (errors) right += '<span class="badge badge-error">' + errors + ' errors</span> ';
   if (warnings) right += '<span class="badge badge-warn">' + warnings + ' warnings</span>';
@@ -950,6 +1002,20 @@ function writeTranslation(pairs, val) {
   }
 }
 
+$('tableScroll').addEventListener('click', e => {
+  const btn = e.target.closest('.delete-btn');
+  if (!btn) return;
+  const idx = parseInt(btn.dataset.idx, 10);
+  const r = state.flatRows[idx];
+  if (!r) return;
+  const pairs = r.kind === 'group'
+    ? r.members.map(m => ({ file: m.file, key: m.key }))
+    : [{ file: r.file, key: r.key }];
+  toggleDeletion(pairs);
+  computeAll();
+  saveToStorage();
+});
+
 $('tableScroll').addEventListener('input', e => {
   if (!e.target.classList.contains('target-input')) return;
   const idx = parseInt(e.target.dataset.idx, 10);
@@ -973,8 +1039,8 @@ $('tableScroll').addEventListener('keydown', e => {
   const idx = inputs.indexOf(e.target);
   if (e.key === 'Enter') {
     e.preventDefault();
-    for (let i = idx + 1; i < inputs.length; i++) if (!inputs[i].value) { inputs[i].focus(); return; }
-    for (let i = 0; i < idx; i++) if (!inputs[i].value) { inputs[i].focus(); return; }
+    for (let i = idx + 1; i < inputs.length; i++) if (!inputs[i].value && !inputs[i].disabled) { inputs[i].focus(); return; }
+    for (let i = 0; i < idx; i++) if (!inputs[i].value && !inputs[i].disabled) { inputs[i].focus(); return; }
   }
   if (e.key === 'Tab') {
     e.preventDefault();
@@ -999,17 +1065,24 @@ function debouncedRecompute() {
     $('tableScroll').querySelectorAll('.table-row').forEach(el => {
       const i = parseInt(el.dataset.idx);
       const r = state.flatRows[i]; if (!r) return;
-      const isMissing = r.ref && !r.target;
-      const isModified = r.target !== r.originalTarget;
-      const hasWarn = rowHasWarning(r);
-      el.className = 'table-row ' + (isMissing ? 'missing' : hasWarn ? 'warning' : r.target ? 'translated' : '');
+      const rowDel = isRowDeleted(r);
+      const isMissing = !rowDel && r.ref && !r.target;
+      const isModified = !rowDel && r.target !== r.originalTarget;
+      const hasWarn = !rowDel && rowHasWarning(r);
+      el.className = 'table-row ' + (rowDel ? 'deleted' : isMissing ? 'missing' : hasWarn ? 'warning' : isModified ? 'modified' : r.target ? 'translated' : '');
       const ic = el.querySelector('.row-icon');
       if (ic) {
-        if (isMissing) { ic.innerHTML = '&#9744;'; ic.style.color = 'var(--red)'; }
+        if (rowDel) { ic.innerHTML = ''; }
+        else if (isMissing) { ic.innerHTML = '&#9744;'; ic.style.color = 'var(--red)'; }
         else if (hasWarn) { ic.innerHTML = '&#9888;'; ic.style.color = 'var(--yellow)'; }
         else if (isModified) { ic.innerHTML = '&#9998;'; ic.style.color = 'var(--green)'; }
         else if (r.target) { ic.innerHTML = '&#10003;'; ic.style.color = 'var(--green)'; }
         else { ic.innerHTML = ''; }
+      }
+      const btn = el.querySelector('.delete-btn');
+      if (btn) {
+        btn.innerHTML = rowDel ? '&#x21BA;' : '&#x2715;';
+        btn.title = rowDel ? 'Restore' : 'Mark for deletion';
       }
     });
   }, 300);
@@ -1079,10 +1152,12 @@ $('exportBtn').addEventListener('click', async () => {
 
     for (const [relPath, entries] of Object.entries(localeFiles)) {
       const fileEdits = userEdits[relPath] || {};
-      const csvRows = entries.map(e => {
-        const val = (relPath in userEdits && e.key in fileEdits) ? fileEdits[e.key] : e.value;
-        return [e.key, val];
-      });
+      const csvRows = entries
+        .filter(e => !isDeletedForLocale(locale, relPath, e.key))
+        .map(e => {
+          const val = (relPath in userEdits && e.key in fileEdits) ? fileEdits[e.key] : e.value;
+          return [e.key, val];
+        });
       zip.file(locale + '/' + relPath, '\uFEFF' + Papa.unparse(csvRows, { quotes: false, delimiter: ',' }));
     }
 
@@ -1092,7 +1167,9 @@ $('exportBtn').addEventListener('click', async () => {
         if (localeFiles[relPath]) continue; // already handled
         const fileEdits = userEdits[relPath] || {};
         if (!Object.keys(fileEdits).length) continue; // no edits for this file, skip
-        const csvRows = ref[relPath].map(e => [e.key, fileEdits[e.key] || '']);
+        const csvRows = ref[relPath]
+          .filter(e => !isDeletedForLocale(locale, relPath, e.key))
+          .map(e => [e.key, fileEdits[e.key] || '']);
         zip.file(locale + '/' + relPath, '\uFEFF' + Papa.unparse(csvRows, { quotes: false, delimiter: ',' }));
       }
     }
@@ -1121,6 +1198,7 @@ function saveToStorage() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         editLocale: state.editLocale,
         edits: state.edits,
+        deletions: state.deletions,
         dedup: state.dedup,
         view: state.filter.view,
         untranslated: state.filter.untranslated,
@@ -1138,6 +1216,7 @@ function loadFromStorage() {
     // refLocale is always English — derived from the pack on load, not restored
     if (data.editLocale) state.editLocale = data.editLocale;
     if (data.edits) state.edits = data.edits;
+    if (data.deletions) state.deletions = data.deletions;
     if (typeof data.dedup === 'boolean') state.dedup = data.dedup;
     if (data.view) state.filter.view = data.view;
     if (data.untranslated) state.filter.untranslated = true;
@@ -1208,7 +1287,7 @@ $('aiTranslateBtn').addEventListener('click', async () => {
   if (!settings.apiKey) { $('aiSettingsModal').style.display = 'flex'; return; }
 
   // Collect untranslated rows in current view that have an English ref
-  const rows = state.flatRows.filter(r => !r.target && r.ref);
+  const rows = state.flatRows.filter(r => !r.target && r.ref && !isRowDeleted(r));
   if (!rows.length) { alert('No untranslated rows with English reference in the current view.'); return; }
 
   const localeName = LOCALE_NAMES[state.editLocale.split('-')[0].toLowerCase()] || state.editLocale;
