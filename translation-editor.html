@@ -94,7 +94,7 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 
 .table-container { position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); margin-top: 12px; box-shadow: var(--shadow-sm); }
 .table-header { display: grid; grid-template-columns: 130px 240px 1fr 1fr 36px 32px; align-items: center; padding: 0 16px; height: 42px; background: var(--bg2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; position: sticky; top: 0; z-index: 2; }
-.table-scroll { overflow-y: auto; max-height: calc(100vh - 380px); min-height: 300px; }
+.table-scroll { overflow-y: auto; overflow-x: auto; max-height: calc(100vh - 380px); min-height: 300px; }
 .table-row { display: grid; grid-template-columns: 130px 240px 1fr 1fr 36px 32px; align-items: center; padding: 0 16px; min-height: var(--row-h); border-bottom: 1px solid var(--border); font-size: 14px; transition: all 0.15s; border-left: 3px solid transparent; }
 .table-row:hover { background: var(--bg2); }
 .table-row:focus-within { border-left-color: var(--primary); background: var(--primary-light); }
