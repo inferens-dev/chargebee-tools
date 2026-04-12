@@ -99,8 +99,10 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 .table-row:hover { background: var(--bg2); }
 .table-row:focus-within { border-left-color: var(--primary); background: var(--primary-light); }
 .table-row.missing { background: var(--red-bg); }
-.table-row.modified { background: var(--blue-bg); }
+.table-row.translated { background: var(--green-bg); }
 .table-row.warning { background: var(--yellow-bg); }
+.table-header span.sortable { cursor: pointer; user-select: none; }
+.table-header span.sortable:hover { color: var(--text); }
 .file-badge { font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.2px; }
 .file-mandatory { background: #dbeafe; color: #1d4ed8; }
 .file-optional { background: #fef3c7; color: #92400e; }
@@ -191,6 +193,9 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;" title="Show only keys that have no translation yet.">
       <input type="checkbox" id="untranslatedToggle" style="margin:0;cursor:pointer;"> Untranslated only
     </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;" title="Show only keys that already have a translation.">
+      <input type="checkbox" id="translatedToggle" style="margin:0;cursor:pointer;"> Translated only
+    </label>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;" title="Collapse keys that share the same English value into a single row. Editing the row updates every matching key at once.">
       <input type="checkbox" id="dedupToggle" checked style="margin:0;cursor:pointer;"> Group identical
     </label>
@@ -200,7 +205,7 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
   <!-- Table -->
   <div class="table-container" id="tableContainer" style="display:none;">
     <div class="table-header">
-      <span>File</span><span>Key</span><span id="refColLabel">Reference</span><span id="editColLabel">Translation</span><span></span>
+      <span class="sortable" data-sort="file">File</span><span class="sortable" data-sort="key">Key</span><span class="sortable" id="refColLabel" data-sort="ref">Reference</span><span class="sortable" id="editColLabel" data-sort="target">Translation</span><span></span>
     </div>
     <div class="table-scroll" id="tableScroll"></div>
   </div>
@@ -271,7 +276,8 @@ const state = {
   // edits stored separately so switching locales doesn't lose work
   edits: {},               // { locale: { "file.csv": { key: newValue } } }
   dedup: true,             // group keys that share the same English value into a single row
-  filter: { search: '', view: 'all', untranslated: false },
+  filter: { search: '', view: 'all', untranslated: false, translated: false },
+  sort: { col: null, dir: 'asc' },
   allRows: [],             // per-key flat (all tiers, no scope/dedup)
   viewRows: [],            // after scope + dedup — feeds applyFilter
   flatRows: [],            // after filters — feeds renderTable
@@ -459,6 +465,7 @@ function populateLocaleSelectors() {
   $('refLocaleLabel').textContent = 'English (' + state.refLocale + ')';
   $('refColLabel').textContent = 'Reference (' + state.refLocale + ')';
   $('editColLabel').textContent = 'Translation (' + state.editLocale + ')';
+  renderSortHeaders();
 }
 
 // ── Build merged view from packData + edits ──
@@ -504,6 +511,7 @@ function showEditor() {
   $('statusBar').style.display = 'flex';
   $('dedupToggle').checked = state.dedup;
   $('untranslatedToggle').checked = state.filter.untranslated;
+  $('translatedToggle').checked = state.filter.translated;
 }
 
 // ── Locale switching ──
@@ -625,7 +633,23 @@ function applyFilter() {
     });
   }
   if (state.filter.untranslated) rows = rows.filter(r => !r.target);
+  if (state.filter.translated) rows = rows.filter(r => !!r.target);
   state.flatRows = rows;
+  applySort();
+}
+
+function applySort() {
+  const { col, dir } = state.sort;
+  if (!col) return;
+  const mul = dir === 'asc' ? 1 : -1;
+  const getKey = r => {
+    if (col === 'file') return r.kind === 'group' ? (r.members[0].file || '') : (r.file || '');
+    if (col === 'key') return r.kind === 'group' ? (r.members[0].key || '') : (r.key || '');
+    if (col === 'ref') return r.ref || '';
+    if (col === 'target') return r.target || '';
+    return '';
+  };
+  state.flatRows.sort((a, b) => mul * getKey(a).localeCompare(getKey(b)));
 }
 
 // Validation focuses on *actionable* data-integrity issues, not translation progress.
@@ -810,9 +834,9 @@ function renderTable() {
     const isMissing = r.ref && !r.target;
     const isModified = r.target !== r.originalTarget;
     const hasWarn = rowHasWarning(r);
-    const cls = isMissing ? 'missing' : hasWarn ? 'warning' : isModified ? 'modified' : '';
+    const cls = isMissing ? 'missing' : hasWarn ? 'warning' : r.target ? 'translated' : '';
     const icon = isMissing ? '&#9744;' : hasWarn ? '&#9888;' : isModified ? '&#9998;' : r.target ? '&#10003;' : '';
-    const ic = isMissing ? 'var(--red)' : hasWarn ? 'var(--yellow)' : isModified ? 'var(--blue)' : 'var(--green)';
+    const ic = isMissing ? 'var(--red)' : hasWarn ? 'var(--yellow)' : r.target ? 'var(--green)' : 'var(--text3)';
 
     let badgeHtml, keyCellHtml;
     if (isGroup) {
@@ -850,6 +874,7 @@ function renderTable() {
     );
   }
   $('tableScroll').innerHTML = html.join('');
+  renderSortHeaders();
 
   const fc = $('filterCount');
   // allRows count is per-key, flatRows count is per-viewRow (may be smaller due to grouping).
@@ -887,6 +912,28 @@ function renderStatus() {
   if (warnings) right += '<span class="badge badge-warn">' + warnings + ' warnings</span>';
   $('statusRight').innerHTML = right;
 }
+
+// ── Column header sort ──
+function renderSortHeaders() {
+  document.querySelectorAll('.table-header .sortable').forEach(el => {
+    const col = el.dataset.sort;
+    const base = el.textContent.replace(/\s[▲▼]$/, '');
+    el.textContent = state.sort.col === col ? base + (state.sort.dir === 'asc' ? ' ▲' : ' ▼') : base;
+  });
+}
+
+document.querySelectorAll('.table-header .sortable').forEach(el => {
+  el.addEventListener('click', () => {
+    const col = el.dataset.sort;
+    if (state.sort.col === col) {
+      state.sort.dir = state.sort.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.sort.col = col;
+      state.sort.dir = 'asc';
+    }
+    applyFilter(); renderTable();
+  });
+});
 
 // ── Inline editing ──
 // Apply a translation value to a list of {file,key} pairs. For dedup groups
@@ -955,12 +1002,12 @@ function debouncedRecompute() {
       const isMissing = r.ref && !r.target;
       const isModified = r.target !== r.originalTarget;
       const hasWarn = rowHasWarning(r);
-      el.className = 'table-row ' + (isMissing ? 'missing' : hasWarn ? 'warning' : isModified ? 'modified' : '');
+      el.className = 'table-row ' + (isMissing ? 'missing' : hasWarn ? 'warning' : r.target ? 'translated' : '');
       const ic = el.querySelector('.row-icon');
       if (ic) {
         if (isMissing) { ic.innerHTML = '&#9744;'; ic.style.color = 'var(--red)'; }
         else if (hasWarn) { ic.innerHTML = '&#9888;'; ic.style.color = 'var(--yellow)'; }
-        else if (isModified) { ic.innerHTML = '&#9998;'; ic.style.color = 'var(--blue)'; }
+        else if (isModified) { ic.innerHTML = '&#9998;'; ic.style.color = 'var(--green)'; }
         else if (r.target) { ic.innerHTML = '&#10003;'; ic.style.color = 'var(--green)'; }
         else { ic.innerHTML = ''; }
       }
@@ -1001,6 +1048,14 @@ $('viewFilter').addEventListener('change', () => {
 });
 $('untranslatedToggle').addEventListener('change', () => {
   state.filter.untranslated = $('untranslatedToggle').checked;
+  if (state.filter.untranslated) { state.filter.translated = false; $('translatedToggle').checked = false; }
+  applyFilter(); renderTable();
+  saveToStorage();
+});
+
+$('translatedToggle').addEventListener('change', () => {
+  state.filter.translated = $('translatedToggle').checked;
+  if (state.filter.translated) { state.filter.untranslated = false; $('untranslatedToggle').checked = false; }
   applyFilter(); renderTable();
   saveToStorage();
 });
@@ -1069,6 +1124,7 @@ function saveToStorage() {
         dedup: state.dedup,
         view: state.filter.view,
         untranslated: state.filter.untranslated,
+        translated: state.filter.translated,
       }));
     } catch (e) { console.warn('save failed', e); }
   }, 500);
@@ -1085,6 +1141,7 @@ function loadFromStorage() {
     if (typeof data.dedup === 'boolean') state.dedup = data.dedup;
     if (data.view) state.filter.view = data.view;
     if (data.untranslated) state.filter.untranslated = true;
+    if (data.translated) state.filter.translated = true;
   } catch (e) { /* ignore */ }
 }
 
