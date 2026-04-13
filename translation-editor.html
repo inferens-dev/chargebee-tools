@@ -718,11 +718,12 @@ function validate() {
   const inView = new Set(viewFilter(state.allRows).map(r => r.file));
   for (const [file, rows] of Object.entries(state.files)) {
     if (!inView.has(file)) continue;
-    // Count active (non-deleted) occurrences per key; flag any key with >1 active copy.
+    // Count ALL occurrences per key regardless of deletion status.
+    // Duplicate keys are a structural source problem; deletion only affects the export,
+    // not the underlying CSV. Only resolveDuplicate (⦸) actually removes the extra row.
     const activeCounts = {};
     for (const row of rows) {
-      if (!isDeleted(file, row.key))
-        activeCounts[row.key] = (activeCounts[row.key] || 0) + 1;
+      activeCounts[row.key] = (activeCounts[row.key] || 0) + 1;
     }
     for (const [dupKey, count] of Object.entries(activeCounts)) {
       if (count > 1)
