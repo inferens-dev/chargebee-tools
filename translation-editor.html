@@ -105,17 +105,26 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 .header-actions { display: flex; gap: 8px; align-items: center; }
 #themeToggle { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; padding: 0; }
 
-.drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 28px 32px; text-align: center; color: var(--text2); cursor: pointer; transition: all 0.3s; margin-bottom: 20px; }
+.drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 28px 32px; color: var(--text2); cursor: pointer; transition: all 0.3s; margin-bottom: 16px; display: flex; flex-direction: column; align-items: center; text-align: center; }
 .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: var(--primary-light); color: var(--primary); box-shadow: var(--shadow-md); }
-.drop-zone.loaded { border-color: var(--green); background: var(--green-bg); color: var(--green); border-style: solid; padding: 10px 20px; }
+.drop-zone.loaded { flex-direction: row; align-items: center; gap: 10px; padding: 10px 16px; text-align: left; border-style: solid; border-color: var(--green); background: var(--green-bg); color: var(--green); }
+.drop-zone.loaded:hover { background: var(--green-bg); border-color: var(--green); color: var(--green); box-shadow: var(--shadow-sm); }
+.drop-zone.loaded:hover .drop-replace-hint { opacity: 0.85; }
 .drop-zone input { display: none; }
 .drop-zone .drop-icon { display: block; margin: 0 auto 12px; opacity: 0.4; transition: all 0.3s; width: 36px; height: 36px; }
 .drop-zone:hover .drop-icon, .drop-zone.dragover .drop-icon { opacity: 1; transform: translateY(-4px); }
 .drop-zone.loaded .drop-icon { display: none; }
+.drop-loaded-icon { display: none; flex-shrink: 0; }
+.drop-zone.loaded .drop-loaded-icon { display: block; width: 15px; height: 15px; opacity: 0.85; }
+.drop-body { display: contents; }
+.drop-zone.loaded .drop-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .drop-zone .drop-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
-.drop-zone.loaded .drop-title { font-size: 13px; margin-bottom: 2px; }
+.drop-zone.loaded .drop-title { font-size: 13px; font-weight: 600; margin-bottom: 1px; }
 .drop-zone .drop-sub { font-size: 13px; color: var(--text3); }
-.drop-zone.loaded .drop-sub { font-size: 12px; }
+.drop-zone.loaded .drop-sub { font-size: 11.5px; opacity: 0.65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drop-replace-hint { display: none; font-size: 11px; flex-shrink: 0; opacity: 0.45; white-space: nowrap; }
+.drop-zone.loaded .drop-replace-hint { display: block; }
+#app:has(.drop-zone.loaded) .privacy-notice { display: none; }
 .privacy-notice { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--green); background: var(--green-bg); border: 1px solid color-mix(in srgb, var(--green) 20%, transparent); border-radius: 20px; padding: 5px 13px; font-weight: 500; width: fit-content; margin: 0 auto 18px; }
 
 .toolbar { display: flex; gap: 12px; align-items: center; padding: 14px 18px; flex-wrap: wrap; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; }
@@ -210,6 +219,7 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
   .table-header, .table-row { grid-template-columns: 80px 150px 1fr 1fr 32px 28px; padding: 0 10px; }
   .toolbar { padding: 10px 12px; }
   .drop-zone { padding: 20px; }
+  .drop-replace-hint { display: none !important; }
   .header h1 { font-size: 18px; }
   .header-sep { margin: 0 10px; }
   .header-title { font-size: 13px; }
@@ -231,8 +241,12 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
   <div class="drop-zone" id="dropZone">
     <input type="file" accept=".zip" id="zipInput">
     <svg class="drop-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    <div class="drop-title" id="dropTitle">Drop your language pack ZIP here</div>
-    <div class="drop-sub" id="dropSub">or click to browse &mdash; download from Settings &rarr; Configure Chargebee &rarr; Languages</div>
+    <svg class="drop-loaded-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <div class="drop-body">
+      <div class="drop-title" id="dropTitle">Drop your language pack ZIP here</div>
+      <div class="drop-sub" id="dropSub">or click to browse &mdash; download from Settings &rarr; Configure Chargebee &rarr; Languages</div>
+    </div>
+    <span class="drop-replace-hint">click to replace</span>
   </div>
 
   <!-- Toolbar: locale picker + export (reference is always English) -->
