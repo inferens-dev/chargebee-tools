@@ -199,6 +199,11 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
 .empty-state h2 { font-size: 26px; color: var(--text); margin-bottom: 12px; font-weight: 700; letter-spacing: -0.5px; }
 .empty-state p { font-size: 15px; max-width: 520px; margin: 0 auto 16px; line-height: 1.7; }
 
+.help-tip { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border); font-size: 10px; color: var(--text2); cursor: default; font-weight: 700; flex-shrink: 0; }
+.help-tip:hover .help-tip-text, .help-tip:focus .help-tip-text { opacity: 1; pointer-events: auto; }
+.help-tip-text { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); width: 230px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 11.5px; color: var(--text); font-weight: 400; line-height: 1.6; box-shadow: var(--shadow-md); opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 10; white-space: normal; }
+.help-tip-text code { font-family: 'SF Mono','Fira Code',monospace; font-size: 10.5px; background: var(--bg3); padding: 1px 4px; border-radius: 3px; }
+
 @media (max-width: 900px) {
   #app { padding: 16px; }
   .table-header, .table-row { grid-template-columns: 80px 150px 1fr 1fr 32px 28px; padding: 0 10px; }
@@ -304,7 +309,7 @@ input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px 
         <option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (fast, cheap)</option>
         <option value="claude-sonnet-4-6">claude-sonnet-4-6 (higher quality)</option>
       </select>
-      <label>Base URL <span style="font-weight:400;color:var(--text3);">(optional)</span></label>
+      <label style="display:flex;align-items:center;gap:5px;">Base URL <span style="font-weight:400;color:var(--text3);">(optional)</span><span class="help-tip" tabindex="0">?<span class="help-tip-text">Use <strong>OpenRouter</strong> to access 200+ models with one API key.<br><br>Set Base URL to:<br><code>https://openrouter.ai/api/v1</code></span></span></label>
       <input type="text" id="aiBaseUrl" placeholder="https://api.anthropic.com/v1">
       <div class="modal-actions">
         <button onclick="document.getElementById('aiSettingsModal').style.display='none'">Cancel</button>
